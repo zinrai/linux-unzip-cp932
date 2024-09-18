@@ -1,17 +1,26 @@
 package main
 
 import (
-	"archive/zip"
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/alexmullins/zip"
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
 )
 
 func TestExtractZip(t *testing.T) {
+	runTest(t, false, "")
+}
+
+func TestExtractEncryptedZip(t *testing.T) {
+	runTest(t, true, "testpassword")
+}
+
+func runTest(t *testing.T, encrypted bool, password string) {
 	// テスト用のファイル名（CP932でエンコード）
 	filename := encodeCP932("テスト文書.txt")
 	content := []byte("これはテスト文書です。")
@@ -19,7 +28,13 @@ func TestExtractZip(t *testing.T) {
 	// ZIP ファイルの作成
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)
-	f, err := w.Create(string(filename))
+	var f io.Writer
+	var err error
+	if encrypted {
+		f, err = w.Encrypt(string(filename), password)
+	} else {
+		f, err = w.Create(string(filename))
+	}
 	if err != nil {
 		t.Fatalf("Failed to create file in zip: %v", err)
 	}
@@ -48,7 +63,7 @@ func TestExtractZip(t *testing.T) {
 
 	// ZIP ファイルの解凍
 	extractDir := filepath.Join(tempDir, "extracted")
-	err = extractZip(zipPath, extractDir)
+	err = extractZip(zipPath, extractDir, password)
 	if err != nil {
 		t.Fatalf("Failed to extract zip: %v", err)
 	}

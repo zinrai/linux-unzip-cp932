@@ -1,13 +1,13 @@
 package main
 
 import (
-	"archive/zip"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
+	"github.com/alexmullins/zip"
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
 )
@@ -15,16 +15,17 @@ import (
 func main() {
 	inputFile := flag.String("input", "", "Input ZIP file (required)")
 	outputDir := flag.String("output", ".", "Output directory (default: current directory)")
+	password := flag.String("password", "", "Password for encrypted ZIP (optional)")
 	flag.Parse()
 
 	if *inputFile == "" {
 		fmt.Println("Error: Input ZIP file is required")
-		fmt.Println("Usage: linux-unzip-cp932 -input <zip_file> [-output <output_directory>]")
+		fmt.Println("Usage: linux-unzip-cp932 -input <zip_file> [-output <output_directory>] [-password <zip_password>]")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
-	err := extractZip(*inputFile, *outputDir)
+	err := extractZip(*inputFile, *outputDir, *password)
 	if err != nil {
 		fmt.Printf("Error extracting ZIP file: %v\n", err)
 		os.Exit(1)
@@ -33,7 +34,7 @@ func main() {
 	fmt.Println("Extraction completed successfully.")
 }
 
-func extractZip(zipPath, destPath string) error {
+func extractZip(zipPath, destPath, password string) error {
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return fmt.Errorf("failed to open zip: %v", err)
@@ -60,7 +61,15 @@ func extractZip(zipPath, destPath string) error {
 
 		fileReader, err := file.Open()
 		if err != nil {
-			return fmt.Errorf("failed to open file '%s': %v", decodedFileName, err)
+			if err == zip.ErrPassword {
+				file.SetPassword(password)
+				fileReader, err = file.Open()
+				if err != nil {
+					return fmt.Errorf("failed to open encrypted file '%s': %v", decodedFileName, err)
+				}
+			} else {
+				return fmt.Errorf("failed to open file '%s': %v", decodedFileName, err)
+			}
 		}
 		defer fileReader.Close()
 
