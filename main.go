@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/alexmullins/zip"
+	"github.com/yeka/zip"
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
 )
@@ -159,25 +159,20 @@ func extractFile(file *zip.File, destPath, password string, decodedFileName stri
 
 // Open a file from ZIP with password if needed
 func openFileWithPassword(file *zip.File, decodedFileName, password string) (io.ReadCloser, error) {
-	fileReader, err := file.Open()
-	if err == nil {
-		return fileReader, nil
-	}
-
-	// Handle password-protected file
-	if err == zip.ErrPassword {
+	// Encryption is detected up front from the entry header, not by opening
+	// and inspecting the error. Covers both traditional ZipCrypto and WinZip AES.
+	if file.IsEncrypted() {
 		if password == "" {
 			return nil, fmt.Errorf("file '%s' is encrypted but no password provided", decodedFileName)
 		}
 		file.SetPassword(password)
-		fileReader, err = file.Open()
-		if err != nil {
-			return nil, fmt.Errorf("failed to open encrypted file '%s': %v", decodedFileName, err)
-		}
-		return fileReader, nil
 	}
 
-	return nil, fmt.Errorf("failed to open file '%s': %v", decodedFileName, err)
+	fileReader, err := file.Open()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file '%s': %v", decodedFileName, err)
+	}
+	return fileReader, nil
 }
 
 // Check if string contains Japanese characters

@@ -7,28 +7,35 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/alexmullins/zip"
+	"github.com/yeka/zip"
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
 )
 
 func TestExtractZip(t *testing.T) {
-	runTest(t, false, "")
+	runTest(t, 0, "")
 }
 
 func TestExtractEncryptedZip(t *testing.T) {
-	runTest(t, true, "testpassword")
+	runTest(t, zip.StandardEncryption, "testpassword")
+}
+
+// WinZip AES is the real-world case for 7-Zip/WinZip archives from Windows,
+// and the reason this tool depends on yeka/zip rather than stdlib archive/zip.
+func TestExtractAES256Zip(t *testing.T) {
+	runTest(t, zip.AES256Encryption, "testpassword")
 }
 
 func TestExtractZipWithGPB11(t *testing.T) {
-	runTestWithGPB11(t, false, "")
+	runTestWithGPB11(t, 0, "")
 }
 
 func TestExtractEncryptedZipWithGPB11(t *testing.T) {
-	runTestWithGPB11(t, true, "testpassword")
+	runTestWithGPB11(t, zip.StandardEncryption, "testpassword")
 }
 
-func runTest(t *testing.T, encrypted bool, password string) {
+// enc == 0 means the entry is written unencrypted.
+func runTest(t *testing.T, enc zip.EncryptionMethod, password string) {
 	// Japanese filename encoded in CP932 (without GPB11 flag)
 	filename := encodeCP932("テスト文書.txt")
 	content := []byte("This is a test document.")
@@ -38,8 +45,8 @@ func runTest(t *testing.T, encrypted bool, password string) {
 	w := zip.NewWriter(buf)
 	var f io.Writer
 	var err error
-	if encrypted {
-		f, err = w.Encrypt(string(filename), password)
+	if enc != 0 {
+		f, err = w.Encrypt(string(filename), password, enc)
 	} else {
 		f, err = w.Create(string(filename))
 	}
@@ -95,7 +102,7 @@ func runTest(t *testing.T, encrypted bool, password string) {
 	t.Log("Test passed successfully for CP932 encoded filename without GPB11 flag")
 }
 
-func runTestWithGPB11(t *testing.T, encrypted bool, password string) {
+func runTestWithGPB11(t *testing.T, enc zip.EncryptionMethod, password string) {
 	// Japanese filename in UTF-8 (with GPB11 flag set)
 	filename := "テスト文書_UTF8.txt"
 	content := []byte("This is a test document with UTF-8 filename.")
@@ -114,16 +121,12 @@ func runTestWithGPB11(t *testing.T, encrypted bool, password string) {
 	// Set GPB11 flag (0x0800)
 	fh.Flags |= 0x0800
 
-	var f io.Writer
-	var err error
-
-	if encrypted {
+	if enc != 0 {
 		fh.SetPassword(password)
-		f, err = w.CreateHeader(fh)
-	} else {
-		f, err = w.CreateHeader(fh)
+		fh.SetEncryptionMethod(enc)
 	}
 
+	f, err := w.CreateHeader(fh)
 	if err != nil {
 		t.Fatalf("Failed to create file in zip with GPB11: %v", err)
 	}
