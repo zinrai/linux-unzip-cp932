@@ -18,7 +18,13 @@ func main() {
 	inputFile := flag.String("input", "", "Input ZIP file (required)")
 	outputDir := flag.String("output", ".", "Output directory (default: current directory)")
 	password := flag.String("password", "", "Password for encrypted ZIP (optional)")
+	showVersion := flag.Bool("version", false, "Print version information and exit")
 	flag.Parse()
+
+	if *showVersion {
+		printVersion()
+		os.Exit(0)
+	}
 
 	if *inputFile == "" {
 		fmt.Println("Error: Input ZIP file is required")
