@@ -20,14 +20,6 @@ Standard `unzip` commands often fail to properly handle CP932 encoded filenames,
 - It does not alter the encoding of the file contents within the ZIP archive
 - For encrypted ZIP files, make sure to provide the correct password using the `-password` option
 
-## Installation
-
-Build the tool:
-
-```
-$ go build
-```
-
 ## Usage
 
 The basic usage is as follows:
